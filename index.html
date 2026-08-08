@@ -58,8 +58,8 @@ const Mute = (p) => <Icon {...p} paths={<><polygon points="11 5 6 9 2 9 2 15 6 1
 const CloudRain = (p) => <Icon {...p} paths={<><path d="M20 16.2A4.5 4.5 0 0 0 17.5 8h-1.8A7 7 0 1 0 4 14.9" /><path d="M16 14v6" /><path d="M8 14v6" /><path d="M12 16v6" /></>} />;
 const Waves = (p) => <Icon {...p} paths={<><path d="M2 8c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1" /><path d="M2 14c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1" /><path d="M2 20c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1" /></>} />;
 const TreePine = (p) => <Icon {...p} paths={<><path d="M12 3l4 5.5h-2.3L17 14h-2.6L18 19H6l3.6-5H7L10.3 8.5H8z" /><line x1="12" y1="19" x2="12" y2="22" /></>} />;
-const SingingBowl = (p) => <Icon {...p} paths={<><path d="M4 14a8 4 0 0 0 16 0" /><line x1="4" y1="14" x2="20" y2="14" /><path d="M9 9c.7-.8 1.3-.8 2 0s1.3.8 2 0" /></>} />;
 const Music = (p) => <Icon {...p} paths={<><path d="M9 18V5l12-2v13" /><circle cx="6" cy="18" r="3" /><circle cx="18" cy="16" r="3" /></>} />;
+const Bird = (p) => <Icon {...p} paths={<><path d="M16 7h.01" /><path d="M3.4 18H12a8 8 0 0 0 8-8V7a4 4 0 0 0-7.28-2.3L2 20" /><path d="m20 7 2 .5-2 .5" /><path d="M10 18v3" /><path d="M14 17.75V21" /><path d="M7 18a6 6 0 0 0 3.84-10.61" /></>} />;
 
 const COLORS = {
   bgTop: "#F7F1E8",
@@ -93,12 +93,12 @@ const MOODS = [
 
 const AMBIENT_SOUNDS = [
   { id: "none", label: "Silence", Icon: Mute },
-  { id: "rain", label: "Pluie", Icon: CloudRain },
-  { id: "ocean", label: "Vagues", Icon: Waves },
-  { id: "wind", label: "Forêt", Icon: TreePine },
-  { id: "fire", label: "Feu", Icon: Flame },
-  { id: "bowl", label: "Bol", Icon: SingingBowl },
-  { id: "music", label: "Musique", Icon: Music },
+  { id: "rain", label: "Pluie", Icon: CloudRain, src: "sounds/rain.mp3" },
+  { id: "ocean", label: "Vagues", Icon: Waves, src: "sounds/ocean.mp3" },
+  { id: "wind", label: "Forêt", Icon: TreePine, src: "sounds/forest.mp3" },
+  { id: "fire", label: "Feu", Icon: Flame, src: "sounds/fire.mp3" },
+  { id: "birds", label: "Oiseaux", Icon: Bird, src: "sounds/birds.mp3" },
+  { id: "music", label: "Musique", Icon: Music, src: null },
 ];
 
 function Shell({ children, noPadBottom }) {
@@ -335,68 +335,55 @@ function SessionScreen({ initialMinutes, sessionName, onFinish, onCancel }) {
   const breathRef = useRef(null);
   const audioCtxRef = useRef(null);
   const audioNodesRef = useRef([]);
+  const audioElRef = useRef(null);
+  const fadeIntervalRef = useRef(null);
   const totalSeconds = selectedMinutes * 60;
 
   useEffect(() => { save("respire_sound", selectedSound); }, [selectedSound]);
 
   const stopAmbient = () => {
+    if (fadeIntervalRef.current) { clearInterval(fadeIntervalRef.current); fadeIntervalRef.current = null; }
+    if (audioElRef.current) { audioElRef.current.pause(); audioElRef.current.src = ""; audioElRef.current = null; }
     audioNodesRef.current.forEach((n) => { try { n.stop && n.stop(); } catch (e) {} });
     audioNodesRef.current = [];
   };
   const playAmbient = (soundId) => {
     stopAmbient();
     if (!soundId || soundId === "none") return;
+    const sound = AMBIENT_SOUNDS.find((s) => s.id === soundId);
+    if (sound && sound.src) {
+      const audio = new Audio(sound.src);
+      audio.loop = true;
+      audio.volume = 0;
+      audio.play().catch(() => {});
+      audioElRef.current = audio;
+      let v = 0;
+      fadeIntervalRef.current = setInterval(() => {
+        v = Math.min(0.55, v + 0.04);
+        audio.volume = v;
+        if (v >= 0.55) { clearInterval(fadeIntervalRef.current); fadeIntervalRef.current = null; }
+      }, 60);
+      return;
+    }
+    // No real file yet for this ambience (e.g. Musique douce) — soft synthesized pad as placeholder.
     if (!audioCtxRef.current) audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)();
     const ctx = audioCtxRef.current;
     if (ctx.state === "suspended") ctx.resume();
     const master = ctx.createGain();
     master.gain.setValueAtTime(0.0001, ctx.currentTime);
-    master.gain.linearRampToValueAtTime(soundId === "bowl" || soundId === "music" ? 0.16 : 0.32, ctx.currentTime + 1.5);
+    master.gain.linearRampToValueAtTime(0.16, ctx.currentTime + 1.5);
     master.connect(ctx.destination);
     const nodes = [master];
-    const mkNoise = () => {
-      const size = 2 * ctx.sampleRate;
-      const buf = ctx.createBuffer(1, size, ctx.sampleRate);
-      const d = buf.getChannelData(0);
-      for (let i = 0; i < size; i++) d[i] = Math.random() * 2 - 1;
-      const src = ctx.createBufferSource();
-      src.buffer = buf; src.loop = true;
-      return src;
-    };
-    if (["rain", "ocean", "wind", "fire"].includes(soundId)) {
-      const src = mkNoise();
-      const filter = ctx.createBiquadFilter();
-      const shape = ctx.createGain(); shape.gain.value = 1;
-      if (soundId === "rain") { filter.type = "highpass"; filter.frequency.value = 1500; filter.Q.value = 0.5; }
-      if (soundId === "ocean") { filter.type = "lowpass"; filter.frequency.value = 450; filter.Q.value = 0.7; }
-      if (soundId === "wind") { filter.type = "bandpass"; filter.frequency.value = 700; filter.Q.value = 0.5; }
-      if (soundId === "fire") { filter.type = "lowpass"; filter.frequency.value = 800; filter.Q.value = 0.4; }
-      src.connect(filter); filter.connect(shape); shape.connect(master);
-      src.start();
-      nodes.push(src, filter, shape);
-      if (soundId === "ocean" || soundId === "wind" || soundId === "fire") {
-        const lfo = ctx.createOscillator();
-        lfo.frequency.value = soundId === "ocean" ? 0.09 : soundId === "wind" ? 0.18 : 0.6;
-        const lfoGain = ctx.createGain();
-        lfoGain.gain.value = soundId === "fire" ? 0.25 : 0.45;
-        shape.gain.value = soundId === "fire" ? 0.75 : 0.55;
-        lfo.connect(lfoGain); lfoGain.connect(shape.gain);
-        lfo.start();
-        nodes.push(lfo, lfoGain);
-      }
-    } else if (soundId === "bowl" || soundId === "music") {
-      const freqs = soundId === "bowl" ? [196.0, 246.94, 293.66, 392.0] : [261.63, 329.63, 392.0, 523.25];
-      freqs.forEach((f, i) => {
-        const osc = ctx.createOscillator(); osc.type = "sine"; osc.frequency.value = f;
-        const g = ctx.createGain(); g.gain.value = 0.09 - i * 0.012;
-        const lfo = ctx.createOscillator(); lfo.frequency.value = 0.04 + i * 0.015;
-        const lfoGain = ctx.createGain(); lfoGain.gain.value = 0.03;
-        lfo.connect(lfoGain); lfoGain.connect(g.gain);
-        osc.connect(g); g.connect(master);
-        osc.start(); lfo.start();
-        nodes.push(osc, g, lfo, lfoGain);
-      });
-    }
+    [261.63, 329.63, 392.0, 523.25].forEach((f, i) => {
+      const osc = ctx.createOscillator(); osc.type = "sine"; osc.frequency.value = f;
+      const g = ctx.createGain(); g.gain.value = 0.09 - i * 0.012;
+      const lfo = ctx.createOscillator(); lfo.frequency.value = 0.04 + i * 0.015;
+      const lfoGain = ctx.createGain(); lfoGain.gain.value = 0.03;
+      lfo.connect(lfoGain); lfoGain.connect(g.gain);
+      osc.connect(g); g.connect(master);
+      osc.start(); lfo.start();
+      nodes.push(osc, g, lfo, lfoGain);
+    });
     audioNodesRef.current = nodes;
   };
   const playChime = () => {
