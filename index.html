@@ -1,0 +1,798 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="default"/>
+<meta name="apple-mobile-web-app-title" content="Respire"/>
+<meta name="mobile-web-app-capable" content="yes"/>
+<meta name="theme-color" content="#F7F1E8"/>
+<title>Respire</title>
+<link rel="manifest" href="manifest.json"/>
+<link rel="apple-touch-icon" href="apple-touch-icon.png"/>
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png"/>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+body{margin:0;background:#F2ECE1;}
+#root{min-height:100vh;}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel" data-presets="react">
+const {useState, useEffect, useRef} = React;
+
+/* ---------------- ICONS (inline SVG, style lucide) ---------------- */
+function Icon({paths, size = 24, color, fill = "none", strokeWidth = 2, style}) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill={fill} stroke={color || "currentColor"}
+      strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" style={style}>
+      {paths}
+    </svg>
+  );
+}
+const Play = (p) => <Icon {...p} paths={<polygon points="5 3 19 12 5 21 5 3" />} />;
+const Pause = (p) => <Icon {...p} paths={<><rect x="6" y="4" width="4" height="16" /><rect x="14" y="4" width="4" height="16" /></>} />;
+const Moon = (p) => <Icon {...p} paths={<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />} />;
+const Wind = (p) => <Icon {...p} paths={<path d="M9.59 4.59A2 2 0 1 1 11 8H2m10.59 11.41A2 2 0 1 0 14 16H2m15.73-8.27A2.5 2.5 0 1 1 19.5 12H2" />} />;
+const Heart = (p) => <Icon {...p} paths={<path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />} />;
+const Sparkles = (p) => <Icon {...p} paths={<path d="M12 3l1.9 5.8a2 2 0 0 0 1.3 1.3L21 12l-5.8 1.9a2 2 0 0 0-1.3 1.3L12 21l-1.9-5.8a2 2 0 0 0-1.3-1.3L3 12l5.8-1.9a2 2 0 0 0 1.3-1.3L12 3z" />} />;
+const ChevronRight = (p) => <Icon {...p} paths={<polyline points="9 18 15 12 9 6" />} />;
+const ChevronLeft = (p) => <Icon {...p} paths={<polyline points="15 18 9 12 15 6" />} />;
+const Flame = (p) => <Icon {...p} paths={<path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.07-2.14-.22-4.05 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.15.43-2.29 1-3a2.5 2.5 0 0 0 2.5 2.5z" />} />;
+const XIcon = (p) => <Icon {...p} paths={<><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></>} />;
+const HomeIcon = (p) => <Icon {...p} paths={<><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><polyline points="9 22 9 12 15 12 15 22" /></>} />;
+const BarChart2 = (p) => <Icon {...p} paths={<><line x1="18" y1="20" x2="18" y2="10" /><line x1="12" y1="20" x2="12" y2="4" /><line x1="6" y1="20" x2="6" y2="14" /></>} />;
+const Clock = (p) => <Icon {...p} paths={<><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></>} />;
+const Calendar = (p) => <Icon {...p} paths={<><rect x="3" y="4" width="18" height="18" rx="2" ry="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></>} />;
+
+const COLORS = {
+  bgTop: "#F7F1E8",
+  bgBottom: "#F2ECE1",
+  text: "#4A4038",
+  subtext: "#9B8E7F",
+  faint: "#A69B8D",
+  peach: "#F0C9A8",
+  pink: "#E8B8C0",
+  sage: "#A8C5B4",
+  yellow: "#E3B873",
+  lavender: "#B0A6C9",
+  card: "#FFFFFF",
+};
+
+const DURATIONS = [3, 5, 10, 15, 20];
+
+const SESSIONS = [
+  { title: "Respiration calme", duration: 3, icon: Wind, color: "#A8C5B4", bg: "#E9F1EC" },
+  { title: "Avant de dormir", duration: 8, icon: Moon, color: "#B0A6C9", bg: "#EDEAF4" },
+  { title: "Apaiser l'anxiété", duration: 5, icon: Heart, color: "#E8B8C0", bg: "#FBECEE" },
+  { title: "Focus & clarté", duration: 10, icon: Sparkles, color: "#E3B873", bg: "#FBF1E0" },
+];
+
+const MOODS = [
+  { emoji: "😔", label: "Tendu" },
+  { emoji: "😐", label: "Neutre" },
+  { emoji: "🙂", label: "Bien" },
+  { emoji: "😌", label: "Serein" },
+];
+
+function Shell({ children, noPadBottom }) {
+  return (
+    <div
+      style={{
+        minHeight: "100vh",
+        background: `linear-gradient(180deg, ${COLORS.bgTop} 0%, ${COLORS.bgBottom} 100%)`,
+        fontFamily: "'Quicksand', 'Nunito', sans-serif",
+        padding: `24px 20px ${noPadBottom ? "24px" : "100px"}`,
+        maxWidth: "480px",
+        margin: "0 auto",
+        boxSizing: "border-box",
+        position: "relative",
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+/* ---------------- HOME ---------------- */
+function HomeScreen({ onStartQuick, onOpenSetup }) {
+  const [breathScale, setBreathScale] = useState(1);
+  const [mood, setMood] = useState(null);
+
+  useEffect(() => {
+    let growing = true;
+    const interval = setInterval(() => {
+      setBreathScale((prev) => {
+        if (prev >= 1.08) growing = false;
+        if (prev <= 1) growing = true;
+        return growing ? prev + 0.004 : prev - 0.004;
+      });
+    }, 40);
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <Shell>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "28px" }}>
+        <div>
+          <p style={{ margin: 0, fontSize: "14px", color: COLORS.faint, fontWeight: 500 }}>Bonjour Maïlys</p>
+          <h1 style={{ margin: "2px 0 0", fontSize: "24px", color: COLORS.text, fontWeight: 700, letterSpacing: "-0.3px" }}>
+            Comment tu te sens ?
+          </h1>
+        </div>
+        <div
+          style={{
+            width: "44px",
+            height: "44px",
+            borderRadius: "50%",
+            background: `linear-gradient(135deg, ${COLORS.peach}, ${COLORS.pink})`,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            boxShadow: "0 4px 12px rgba(232, 184, 192, 0.4)",
+          }}
+        >
+          <Flame size={20} color="#fff" fill="#fff" />
+        </div>
+      </div>
+
+      <div
+        style={{
+          background: "linear-gradient(160deg, #FCEFE4 0%, #F5E2E8 60%, #E9F1EC 100%)",
+          borderRadius: "28px",
+          padding: "28px 24px",
+          marginBottom: "20px",
+          boxShadow: "0 12px 30px rgba(214, 178, 165, 0.25)",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: "20px" }}>
+          <div
+            style={{
+              width: "84px",
+              height: "84px",
+              borderRadius: "50%",
+              background: "radial-gradient(circle at 35% 30%, #FFFDF9, #F0C9A8 70%)",
+              transform: `scale(${breathScale})`,
+              transition: "transform 0.04s linear",
+              flexShrink: 0,
+              boxShadow: "0 8px 20px rgba(240, 201, 168, 0.5)",
+            }}
+          />
+          <div>
+            <p style={{ margin: 0, fontSize: "13px", color: COLORS.faint, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.6px" }}>
+              Suggestion du jour
+            </p>
+            <h2 style={{ margin: "4px 0 8px", fontSize: "19px", color: COLORS.text, fontWeight: 700 }}>
+              3 min pour calmer le mental
+            </h2>
+            <button
+              onClick={() => onStartQuick(3, "Respiration calme")}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "6px",
+                background: COLORS.text,
+                color: COLORS.bgTop,
+                border: "none",
+                borderRadius: "999px",
+                padding: "9px 18px",
+                fontSize: "14px",
+                fontWeight: 600,
+                cursor: "pointer",
+              }}
+            >
+              <Play size={14} fill={COLORS.bgTop} />
+              Commencer
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div
+        style={{
+          background: COLORS.card,
+          borderRadius: "22px",
+          padding: "18px 20px",
+          marginBottom: "20px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          boxShadow: "0 6px 18px rgba(180, 160, 140, 0.12)",
+        }}
+      >
+        <div>
+          <p style={{ margin: 0, fontSize: "13px", color: COLORS.faint, fontWeight: 500 }}>Ta série</p>
+          <p style={{ margin: "2px 0 0", fontSize: "20px", color: COLORS.text, fontWeight: 700 }}>
+            4 jours <span style={{ fontSize: "15px" }}>🔥</span>
+          </p>
+        </div>
+        <div style={{ display: "flex", gap: "6px" }}>
+          {[1, 1, 1, 1, 0, 0, 0].map((active, i) => (
+            <div
+              key={i}
+              style={{ width: "10px", height: "32px", borderRadius: "6px", background: active ? COLORS.sage : "#EDE7DC" }}
+            />
+          ))}
+        </div>
+      </div>
+
+      <div
+        style={{
+          background: COLORS.card,
+          borderRadius: "22px",
+          padding: "18px 20px",
+          marginBottom: "20px",
+          boxShadow: "0 6px 18px rgba(180, 160, 140, 0.12)",
+        }}
+      >
+        <p style={{ margin: "0 0 14px", fontSize: "13px", color: COLORS.faint, fontWeight: 500 }}>
+          Ton humeur avant de commencer
+        </p>
+        <div style={{ display: "flex", justifyContent: "space-between" }}>
+          {MOODS.map((m) => (
+            <button
+              key={m.label}
+              onClick={() => setMood(m.label)}
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: "6px",
+                background: mood === m.label ? "#F5E2E8" : "transparent",
+                border: "none",
+                borderRadius: "16px",
+                padding: "8px 12px",
+                cursor: "pointer",
+                transition: "background 0.2s",
+              }}
+            >
+              <span style={{ fontSize: "24px" }}>{m.emoji}</span>
+              <span style={{ fontSize: "11px", color: COLORS.subtext, fontWeight: 600 }}>{m.label}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px" }}>
+        <h3 style={{ margin: 0, fontSize: "17px", color: COLORS.text, fontWeight: 700 }}>Séances rapides</h3>
+        <span style={{ fontSize: "13px", color: "#B7A78F", display: "flex", alignItems: "center", fontWeight: 600 }}>
+          Tout voir <ChevronRight size={14} />
+        </span>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px" }}>
+        {SESSIONS.map((s) => (
+          <div
+            key={s.title}
+            onClick={() => onStartQuick(s.duration, s.title)}
+            style={{
+              background: s.bg,
+              borderRadius: "20px",
+              padding: "16px",
+              boxShadow: "0 6px 16px rgba(180, 160, 140, 0.10)",
+              cursor: "pointer",
+            }}
+          >
+            <div
+              style={{
+                width: "38px",
+                height: "38px",
+                borderRadius: "12px",
+                background: COLORS.card,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                marginBottom: "12px",
+              }}
+            >
+              <s.icon size={18} color={s.color} />
+            </div>
+            <p style={{ margin: 0, fontSize: "14px", color: COLORS.text, fontWeight: 700, lineHeight: 1.3 }}>{s.title}</p>
+            <p style={{ margin: "4px 0 0", fontSize: "12px", color: COLORS.subtext, fontWeight: 500 }}>{s.duration} min</p>
+          </div>
+        ))}
+      </div>
+    </Shell>
+  );
+}
+
+/* ---------------- SESSION ---------------- */
+function SessionScreen({ initialMinutes, sessionName, onFinish, onCancel }) {
+  const [setupMode, setSetupMode] = useState(true);
+  const [selectedMinutes, setSelectedMinutes] = useState(initialMinutes || 3);
+  const [secondsLeft, setSecondsLeft] = useState((initialMinutes || 3) * 60);
+  const [running, setRunning] = useState(false);
+  const [phase, setPhase] = useState("Inspire");
+  const [breathScale, setBreathScale] = useState(1);
+  const intervalRef = useRef(null);
+  const breathRef = useRef(null);
+  const totalSeconds = selectedMinutes * 60;
+
+  const startSession = () => {
+    setSecondsLeft(selectedMinutes * 60);
+    setSetupMode(false);
+  };
+
+  useEffect(() => {
+    if (running && secondsLeft > 0) {
+      intervalRef.current = setInterval(() => setSecondsLeft((s) => s - 1), 1000);
+    }
+    return () => clearInterval(intervalRef.current);
+  }, [running, secondsLeft]);
+
+  useEffect(() => {
+    if (!running) return;
+    const cycle = [
+      { name: "Inspire", duration: 4 },
+      { name: "Retiens", duration: 2 },
+      { name: "Expire", duration: 4 },
+    ];
+    let cycleIndex = 0;
+    let elapsedInPhase = 0;
+
+    breathRef.current = setInterval(() => {
+      elapsedInPhase += 0.05;
+      const current = cycle[cycleIndex];
+      const progress = elapsedInPhase / current.duration;
+
+      if (current.name === "Inspire") setBreathScale(1 + progress * 0.35);
+      if (current.name === "Retiens") setBreathScale(1.35);
+      if (current.name === "Expire") setBreathScale(1.35 - progress * 0.35);
+
+      if (elapsedInPhase >= current.duration) {
+        elapsedInPhase = 0;
+        cycleIndex = (cycleIndex + 1) % cycle.length;
+        setPhase(cycle[cycleIndex].name);
+      }
+    }, 50);
+
+    return () => clearInterval(breathRef.current);
+  }, [running]);
+
+  const minutes = Math.floor(secondsLeft / 60);
+  const secs = secondsLeft % 60;
+  const progress = 1 - secondsLeft / totalSeconds;
+  const circumference = 2 * Math.PI * 130;
+  const dashOffset = circumference * (1 - progress);
+  const isDone = secondsLeft === 0;
+
+  if (setupMode) {
+    return (
+      <Shell noPadBottom>
+        <div style={{ width: "100%", display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+          <button
+            onClick={onCancel}
+            style={{
+              width: "38px",
+              height: "38px",
+              borderRadius: "50%",
+              background: "rgba(255,255,255,0.6)",
+              border: "none",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              cursor: "pointer",
+            }}
+          >
+            <XIcon size={18} color="#6B5F52" />
+          </button>
+          <p style={{ margin: 0, fontSize: "14px", color: "#7A6E5F", fontWeight: 600 }}>{sessionName}</p>
+          <div style={{ width: "38px" }} />
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+          <div
+            style={{
+              width: "150px",
+              height: "150px",
+              borderRadius: "50%",
+              background: "radial-gradient(circle at 35% 30%, #FFFDF9, #F0C9A8 75%)",
+              boxShadow: "0 10px 30px rgba(240, 201, 168, 0.5)",
+              marginTop: "36px",
+              marginBottom: "36px",
+            }}
+          />
+
+          <p style={{ margin: "0 0 18px", fontSize: "15px", color: "#7A6E5F", fontWeight: 600, textAlign: "center" }}>
+            Combien de temps aujourd'hui ?
+          </p>
+
+          <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: "10px", maxWidth: "320px" }}>
+            {DURATIONS.map((d) => (
+              <button
+                key={d}
+                onClick={() => setSelectedMinutes(d)}
+                style={{
+                  minWidth: "64px",
+                  padding: "14px 10px",
+                  borderRadius: "16px",
+                  border: "none",
+                  background: selectedMinutes === d ? COLORS.text : COLORS.card,
+                  color: selectedMinutes === d ? COLORS.bgTop : COLORS.text,
+                  fontWeight: 700,
+                  fontSize: "15px",
+                  cursor: "pointer",
+                  boxShadow: selectedMinutes === d ? "0 8px 18px rgba(74, 64, 56, 0.3)" : "0 4px 12px rgba(180, 160, 140, 0.15)",
+                  transition: "all 0.15s ease",
+                }}
+              >
+                {d} min
+              </button>
+            ))}
+          </div>
+
+          <div style={{ display: "flex", alignItems: "center", gap: "18px", marginTop: "22px" }}>
+            <button
+              onClick={() => setSelectedMinutes((m) => Math.max(1, m - 1))}
+              style={{
+                width: "36px", height: "36px", borderRadius: "50%", border: "none",
+                background: COLORS.card, color: COLORS.text, fontSize: "18px", fontWeight: 700,
+                cursor: "pointer", boxShadow: "0 4px 10px rgba(180, 160, 140, 0.15)",
+              }}
+            >
+              –
+            </button>
+            <p style={{ margin: 0, fontSize: "16px", color: COLORS.text, fontWeight: 700, minWidth: "70px", textAlign: "center" }}>
+              {selectedMinutes} min
+            </p>
+            <button
+              onClick={() => setSelectedMinutes((m) => Math.min(60, m + 1))}
+              style={{
+                width: "36px", height: "36px", borderRadius: "50%", border: "none",
+                background: COLORS.card, color: COLORS.text, fontSize: "18px", fontWeight: 700,
+                cursor: "pointer", boxShadow: "0 4px 10px rgba(180, 160, 140, 0.15)",
+              }}
+            >
+              +
+            </button>
+          </div>
+
+          <button
+            onClick={startSession}
+            style={{
+              marginTop: "40px",
+              display: "flex", alignItems: "center", gap: "8px",
+              background: COLORS.text, color: COLORS.bgTop, border: "none",
+              borderRadius: "999px", padding: "15px 36px", fontSize: "15px", fontWeight: 700,
+              cursor: "pointer", boxShadow: "0 8px 20px rgba(74, 64, 56, 0.3)",
+            }}
+          >
+            <Play size={16} fill={COLORS.bgTop} />
+            Commencer
+          </button>
+        </div>
+      </Shell>
+    );
+  }
+
+  return (
+    <Shell noPadBottom>
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+        <div style={{ width: "100%", display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+          <button
+            onClick={onCancel}
+            style={{
+              width: "38px", height: "38px", borderRadius: "50%",
+              background: "rgba(255,255,255,0.6)", border: "none",
+              display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer",
+            }}
+          >
+            <XIcon size={18} color="#6B5F52" />
+          </button>
+          <p style={{ margin: 0, fontSize: "14px", color: "#7A6E5F", fontWeight: 600 }}>{sessionName}</p>
+          <div style={{ width: "38px" }} />
+        </div>
+
+        <p
+          style={{
+            margin: "40px 0 8px", fontSize: "13px", color: COLORS.faint, fontWeight: 600,
+            textTransform: "uppercase", letterSpacing: "1px",
+          }}
+        >
+          {running ? phase : isDone ? "Terminé" : "Prête ?"}
+        </p>
+
+        <div style={{ position: "relative", width: "300px", height: "300px", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <svg width="300" height="300" style={{ position: "absolute", transform: "rotate(-90deg)" }}>
+            <circle cx="150" cy="150" r="130" fill="none" stroke="#F0E7DA" strokeWidth="10" />
+            <circle
+              cx="150" cy="150" r="130" fill="none" stroke={COLORS.pink} strokeWidth="10" strokeLinecap="round"
+              strokeDasharray={circumference} strokeDashoffset={dashOffset}
+              style={{ transition: "stroke-dashoffset 1s linear" }}
+            />
+          </svg>
+
+          <div
+            style={{
+              width: "160px", height: "160px", borderRadius: "50%",
+              background: "radial-gradient(circle at 35% 30%, #FFFDF9, #F0C9A8 75%)",
+              transform: `scale(${running ? breathScale * 0.75 : 0.75})`,
+              transition: running ? "transform 0.05s linear" : "transform 0.4s ease",
+              boxShadow: "0 10px 30px rgba(240, 201, 168, 0.5)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+            }}
+          >
+            <p style={{ margin: 0, fontSize: "34px", color: COLORS.text, fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>
+              {minutes}:{secs.toString().padStart(2, "0")}
+            </p>
+          </div>
+        </div>
+
+        <p style={{ margin: "36px 0 0", fontSize: "14px", color: COLORS.subtext, textAlign: "center", maxWidth: "260px", lineHeight: 1.5 }}>
+          {isDone
+            ? "Belle séance. Prends un instant avant de reprendre ta journée."
+            : "Suis le mouvement du cercle. Inspire quand il grandit, expire quand il rétrécit."}
+        </p>
+
+        <div style={{ marginTop: "32px", display: "flex", alignItems: "center", gap: "20px" }}>
+          {!isDone && (
+            <button
+              onClick={() => setRunning((r) => !r)}
+              style={{
+                width: "64px", height: "64px", borderRadius: "50%",
+                background: COLORS.text, border: "none",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                cursor: "pointer", boxShadow: "0 8px 20px rgba(74, 64, 56, 0.3)",
+              }}
+            >
+              {running ? (
+                <Pause size={24} color={COLORS.bgTop} fill={COLORS.bgTop} />
+              ) : (
+                <Play size={24} color={COLORS.bgTop} fill={COLORS.bgTop} style={{ marginLeft: "3px" }} />
+              )}
+            </button>
+          )}
+
+          {isDone && (
+            <button
+              onClick={() => onFinish(selectedMinutes)}
+              style={{
+                background: COLORS.text, color: COLORS.bgTop, border: "none",
+                borderRadius: "999px", padding: "14px 32px", fontSize: "15px", fontWeight: 700,
+                cursor: "pointer", display: "flex", alignItems: "center", gap: "8px",
+              }}
+            >
+              <Wind size={16} />
+              Comment tu te sens ?
+            </button>
+          )}
+        </div>
+      </div>
+    </Shell>
+  );
+}
+
+/* ---------------- STATS ---------------- */
+function StatsScreen({ onBack, sessionsCompleted }) {
+  const weekData = [
+    { day: "L", minutes: 5 },
+    { day: "M", minutes: 8 },
+    { day: "M", minutes: 3 },
+    { day: "J", minutes: 10 },
+    { day: "V", minutes: 0 },
+    { day: "S", minutes: 15 },
+    { day: "D", minutes: 12 },
+  ];
+  const maxMinutes = Math.max(...weekData.map((d) => d.minutes), 1);
+
+  const moodData = [
+    { label: "Serein", value: 40, color: COLORS.sage },
+    { label: "Bien", value: 30, color: COLORS.yellow },
+    { label: "Neutre", value: 20, color: COLORS.pink },
+    { label: "Tendu", value: 10, color: COLORS.lavender },
+  ];
+
+  const trendData = [4, 6, 5, 9, 7, 11, 10, 14];
+  const trendMax = Math.max(...trendData);
+  const trendMin = Math.min(...trendData);
+  const points = trendData
+    .map((v, i) => {
+      const x = (i / (trendData.length - 1)) * 260;
+      const y = 60 - ((v - trendMin) / (trendMax - trendMin || 1)) * 50;
+      return `${x},${y}`;
+    })
+    .join(" ");
+
+  let cumulative = 0;
+  const donutSegments = moodData.map((m) => {
+    const start = cumulative;
+    cumulative += m.value;
+    return { ...m, start, end: cumulative };
+  });
+  const radius = 70;
+  const circumference = 2 * Math.PI * radius;
+
+  return (
+    <Shell>
+      <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "22px" }}>
+        <button
+          onClick={onBack}
+          style={{
+            width: "38px", height: "38px", borderRadius: "50%", background: COLORS.card, border: "none",
+            display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer",
+            boxShadow: "0 4px 12px rgba(180, 160, 140, 0.15)",
+          }}
+        >
+          <ChevronLeft size={18} color="#6B5F52" />
+        </button>
+        <h1 style={{ margin: 0, fontSize: "20px", color: COLORS.text, fontWeight: 700 }}>Ta progression</h1>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "10px", marginBottom: "20px" }}>
+        {[
+          { icon: Flame, label: "Série", value: "4j", bg: "#FBF1E0", color: COLORS.yellow },
+          { icon: Clock, label: "Ce mois", value: "2h18", bg: "#E9F1EC", color: COLORS.sage },
+          { icon: Calendar, label: "Séances", value: String(23 + sessionsCompleted), bg: "#FBECEE", color: COLORS.pink },
+        ].map((s) => (
+          <div key={s.label} style={{ background: s.bg, borderRadius: "18px", padding: "14px 10px", textAlign: "center" }}>
+            <s.icon size={16} color={s.color} style={{ marginBottom: "6px" }} />
+            <p style={{ margin: 0, fontSize: "17px", color: COLORS.text, fontWeight: 700 }}>{s.value}</p>
+            <p style={{ margin: "2px 0 0", fontSize: "11px", color: COLORS.subtext, fontWeight: 600 }}>{s.label}</p>
+          </div>
+        ))}
+      </div>
+
+      <div style={{ background: COLORS.card, borderRadius: "22px", padding: "20px", marginBottom: "16px", boxShadow: "0 6px 18px rgba(180, 160, 140, 0.12)" }}>
+        <p style={{ margin: "0 0 18px", fontSize: "14px", color: COLORS.text, fontWeight: 700 }}>Minutes cette semaine</p>
+        <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", height: "100px" }}>
+          {weekData.map((d, i) => (
+            <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "8px" }}>
+              <div
+                style={{
+                  width: "22px",
+                  height: `${(d.minutes / maxMinutes) * 76 || 3}px`,
+                  minHeight: "3px",
+                  borderRadius: "8px",
+                  background: d.minutes > 0 ? `linear-gradient(180deg, ${COLORS.peach}, ${COLORS.pink})` : "#EDE7DC",
+                }}
+              />
+              <span style={{ fontSize: "11px", color: COLORS.faint, fontWeight: 600 }}>{d.day}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div style={{ background: COLORS.card, borderRadius: "22px", padding: "20px", marginBottom: "16px", boxShadow: "0 6px 18px rgba(180, 160, 140, 0.12)" }}>
+        <p style={{ margin: "0 0 14px", fontSize: "14px", color: COLORS.text, fontWeight: 700 }}>Tendance sur 8 semaines</p>
+        <svg width="100%" height="70" viewBox="0 0 260 70" preserveAspectRatio="none">
+          <defs>
+            <linearGradient id="trendFill" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={COLORS.sage} stopOpacity="0.35" />
+              <stop offset="100%" stopColor={COLORS.sage} stopOpacity="0" />
+            </linearGradient>
+          </defs>
+          <polygon points={`0,70 ${points} 260,70`} fill="url(#trendFill)" />
+          <polyline points={points} fill="none" stroke={COLORS.sage} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </div>
+
+      <div style={{ background: COLORS.card, borderRadius: "22px", padding: "20px", boxShadow: "0 6px 18px rgba(180, 160, 140, 0.12)" }}>
+        <p style={{ margin: "0 0 16px", fontSize: "14px", color: COLORS.text, fontWeight: 700 }}>Ton humeur après méditation</p>
+        <div style={{ display: "flex", alignItems: "center", gap: "24px" }}>
+          <svg width="180" height="180" viewBox="0 0 180 180">
+            {donutSegments.map((seg) => {
+              const dash = (seg.value / 100) * circumference;
+              const gap = circumference - dash;
+              const rotation = (seg.start / 100) * 360 - 90;
+              return (
+                <circle
+                  key={seg.label} cx="90" cy="90" r={radius} fill="none" stroke={seg.color} strokeWidth="24"
+                  strokeDasharray={`${dash} ${gap}`} transform={`rotate(${rotation} 90 90)`} strokeLinecap="butt"
+                />
+              );
+            })}
+          </svg>
+          <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+            {moodData.map((m) => (
+              <div key={m.label} style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <div style={{ width: "10px", height: "10px", borderRadius: "3px", background: m.color }} />
+                <span style={{ fontSize: "12px", color: "#6B5F52", fontWeight: 600 }}>{m.label}</span>
+                <span style={{ fontSize: "12px", color: COLORS.faint }}>{m.value}%</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </Shell>
+  );
+}
+
+/* ---------------- APP ROOT ---------------- */
+function App() {
+  const [screen, setScreen] = useState("home"); // home | session | stats
+  const [sessionConfig, setSessionConfig] = useState({ minutes: 3, name: "Respiration calme" });
+  const [sessionsCompleted, setSessionsCompleted] = useState(0);
+
+  const startQuickSession = (minutes, name) => {
+    setSessionConfig({ minutes, name });
+    setScreen("session");
+  };
+
+  const finishSession = () => {
+    setSessionsCompleted((c) => c + 1);
+    setScreen("stats");
+  };
+
+  return (
+    <div style={{ position: "relative" }}>
+      {screen === "home" && <HomeScreen onStartQuick={startQuickSession} />}
+      {screen === "session" && (
+        <SessionScreen
+          initialMinutes={sessionConfig.minutes}
+          sessionName={sessionConfig.name}
+          onFinish={finishSession}
+          onCancel={() => setScreen("home")}
+        />
+      )}
+      {screen === "stats" && <StatsScreen onBack={() => setScreen("home")} sessionsCompleted={sessionsCompleted} />}
+
+      {/* Bottom nav - only on home & stats */}
+      {screen !== "session" && (
+        <div
+          style={{
+            position: "fixed",
+            bottom: "20px",
+            left: "50%",
+            transform: "translateX(-50%)",
+            width: "calc(100% - 40px)",
+            maxWidth: "440px",
+            background: "rgba(255,255,255,0.85)",
+            backdropFilter: "blur(10px)",
+            borderRadius: "22px",
+            padding: "10px",
+            display: "flex",
+            justifyContent: "space-around",
+            boxShadow: "0 10px 30px rgba(180, 160, 140, 0.25)",
+          }}
+        >
+          <button
+            onClick={() => setScreen("home")}
+            style={{
+              display: "flex", flexDirection: "column", alignItems: "center", gap: "3px",
+              background: "none", border: "none", cursor: "pointer",
+              padding: "8px 24px", borderRadius: "14px",
+              backgroundColor: screen === "home" ? "#F5E2E8" : "transparent",
+            }}
+          >
+            <HomeIcon size={18} color={screen === "home" ? COLORS.text : COLORS.faint} />
+            <span style={{ fontSize: "11px", fontWeight: 600, color: screen === "home" ? COLORS.text : COLORS.faint }}>
+              Accueil
+            </span>
+          </button>
+          <button
+            onClick={() => setScreen("stats")}
+            style={{
+              display: "flex", flexDirection: "column", alignItems: "center", gap: "3px",
+              background: "none", border: "none", cursor: "pointer",
+              padding: "8px 24px", borderRadius: "14px",
+              backgroundColor: screen === "stats" ? "#F5E2E8" : "transparent",
+            }}
+          >
+            <BarChart2 size={18} color={screen === "stats" ? COLORS.text : COLORS.faint} />
+            <span style={{ fontSize: "11px", fontWeight: 600, color: screen === "stats" ? COLORS.text : COLORS.faint }}>
+              Progrès
+            </span>
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("sw.js").catch(() => {});
+  });
+}
+</script>
+</body>
+</html>
