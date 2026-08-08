@@ -939,6 +939,12 @@ if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
     navigator.serviceWorker.register("sw.js").catch(() => {});
   });
+  let refreshedAfterUpdate = false;
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (refreshedAfterUpdate) return;
+    refreshedAfterUpdate = true;
+    window.location.reload();
+  });
 }
 </script>
 </body>
