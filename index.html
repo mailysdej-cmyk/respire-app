@@ -30,6 +30,15 @@ const {useState, useEffect, useRef} = React;
 
 function load(key, def) { try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : def; } catch { return def; } }
 function save(key, val) { try { localStorage.setItem(key, JSON.stringify(val)); } catch {} }
+function todayStr() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+function logMood(context, label, emoji) {
+  const log = load("respire_moods", []);
+  log.push({ date: todayStr(), context, label, emoji });
+  save("respire_moods", log.slice(-200));
+}
 
 /* ---------------- ICONS (inline SVG, style lucide) ---------------- */
 function Icon({paths, size = 24, color, fill = "none", strokeWidth = 2, style}) {
@@ -121,7 +130,7 @@ function Shell({ children, noPadBottom }) {
 }
 
 /* ---------------- HOME ---------------- */
-function HomeScreen({ onStartQuick, onOpenSetup }) {
+function HomeScreen({ onStartQuick }) {
   const [breathScale, setBreathScale] = useState(1);
   const [mood, setMood] = useState(null);
 
@@ -258,7 +267,7 @@ function HomeScreen({ onStartQuick, onOpenSetup }) {
           {MOODS.map((m) => (
             <button
               key={m.label}
-              onClick={() => setMood(m.label)}
+              onClick={() => { setMood(m.label); logMood("before", m.label, m.emoji); }}
               style={{
                 display: "flex",
                 flexDirection: "column",
@@ -281,7 +290,10 @@ function HomeScreen({ onStartQuick, onOpenSetup }) {
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px" }}>
         <h3 style={{ margin: 0, fontSize: "17px", color: COLORS.text, fontWeight: 700 }}>Séances rapides</h3>
-        <span style={{ fontSize: "13px", color: "#B7A78F", display: "flex", alignItems: "center", fontWeight: 600 }}>
+        <span
+          onClick={() => onStartQuick(3, "Séance libre")}
+          style={{ fontSize: "13px", color: "#B7A78F", display: "flex", alignItems: "center", fontWeight: 600, cursor: "pointer" }}
+        >
           Tout voir <ChevronRight size={14} />
         </span>
       </div>
@@ -677,17 +689,26 @@ function SessionScreen({ initialMinutes, sessionName, onFinish, onCancel }) {
           )}
 
           {isDone && (
-            <button
-              onClick={() => onFinish(selectedMinutes)}
-              style={{
-                background: COLORS.text, color: COLORS.bgTop, border: "none",
-                borderRadius: "999px", padding: "14px 32px", fontSize: "15px", fontWeight: 700,
-                cursor: "pointer", display: "flex", alignItems: "center", gap: "8px",
-              }}
-            >
-              <Wind size={16} />
-              Comment tu te sens ?
-            </button>
+            <div style={{ textAlign: "center" }}>
+              <p style={{ margin: "0 0 14px", fontSize: "14px", color: COLORS.text, fontWeight: 700 }}>
+                Comment tu te sens ?
+              </p>
+              <div style={{ display: "flex", justifyContent: "center", gap: "16px" }}>
+                {MOODS.map((m) => (
+                  <button
+                    key={m.label}
+                    onClick={() => onFinish(selectedMinutes, m.label, m.emoji)}
+                    style={{
+                      display: "flex", flexDirection: "column", alignItems: "center", gap: "6px",
+                      background: "none", border: "none", cursor: "pointer", padding: "4px",
+                    }}
+                  >
+                    <span style={{ fontSize: "28px" }}>{m.emoji}</span>
+                    <span style={{ fontSize: "11px", color: COLORS.subtext, fontWeight: 600 }}>{m.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
           )}
         </div>
 
@@ -729,12 +750,15 @@ function StatsScreen({ onBack, sessionsCompleted }) {
   ];
   const maxMinutes = Math.max(...weekData.map((d) => d.minutes), 1);
 
-  const moodData = [
-    { label: "Serein", value: 40, color: COLORS.sage },
-    { label: "Bien", value: 30, color: COLORS.yellow },
-    { label: "Neutre", value: 20, color: COLORS.pink },
-    { label: "Tendu", value: 10, color: COLORS.lavender },
-  ];
+  const MOOD_COLORS = { Tendu: COLORS.lavender, Neutre: COLORS.pink, Bien: COLORS.yellow, Serein: COLORS.sage };
+  const afterMoods = load("respire_moods", []).filter((m) => m.context === "after");
+  const moodCounts = MOODS.map((m) => ({
+    label: m.label,
+    color: MOOD_COLORS[m.label],
+    count: afterMoods.filter((e) => e.label === m.label).length,
+  })).filter((m) => m.count > 0);
+  const totalMoods = moodCounts.reduce((sum, m) => sum + m.count, 0);
+  const moodData = moodCounts.map((m) => ({ ...m, value: Math.round((m.count / totalMoods) * 100) }));
 
   const trendData = [4, 6, 5, 9, 7, 11, 10, 14];
   const trendMax = Math.max(...trendData);
@@ -776,7 +800,7 @@ function StatsScreen({ onBack, sessionsCompleted }) {
         {[
           { icon: Flame, label: "Série", value: "4j", bg: "#FBF1E0", color: COLORS.yellow },
           { icon: Clock, label: "Ce mois", value: "2h18", bg: "#E9F1EC", color: COLORS.sage },
-          { icon: Calendar, label: "Séances", value: String(23 + sessionsCompleted), bg: "#FBECEE", color: COLORS.pink },
+          { icon: Calendar, label: "Séances", value: String(sessionsCompleted), bg: "#FBECEE", color: COLORS.pink },
         ].map((s) => (
           <div key={s.label} style={{ background: s.bg, borderRadius: "18px", padding: "14px 10px", textAlign: "center" }}>
             <s.icon size={16} color={s.color} style={{ marginBottom: "6px" }} />
@@ -822,6 +846,11 @@ function StatsScreen({ onBack, sessionsCompleted }) {
 
       <div style={{ background: COLORS.card, borderRadius: "22px", padding: "20px", boxShadow: "0 6px 18px rgba(180, 160, 140, 0.12)" }}>
         <p style={{ margin: "0 0 16px", fontSize: "14px", color: COLORS.text, fontWeight: 700 }}>Ton humeur après méditation</p>
+        {moodData.length === 0 ? (
+          <p style={{ margin: 0, fontSize: "12px", color: COLORS.faint, lineHeight: 1.5 }}>
+            Pas encore de données — termine une séance et dis-nous comment tu te sens pour voir ton humeur ici.
+          </p>
+        ) : (
         <div style={{ display: "flex", alignItems: "center", gap: "24px" }}>
           <svg width="180" height="180" viewBox="0 0 180 180">
             {donutSegments.map((seg) => {
@@ -846,6 +875,7 @@ function StatsScreen({ onBack, sessionsCompleted }) {
             ))}
           </div>
         </div>
+        )}
       </div>
     </Shell>
   );
@@ -855,15 +885,18 @@ function StatsScreen({ onBack, sessionsCompleted }) {
 function App() {
   const [screen, setScreen] = useState("home"); // home | session | stats
   const [sessionConfig, setSessionConfig] = useState({ minutes: 3, name: "Respiration calme" });
-  const [sessionsCompleted, setSessionsCompleted] = useState(0);
+  const [sessionsCompleted, setSessionsCompleted] = useState(() => load("respire_sessions_completed", 0));
+
+  useEffect(() => { save("respire_sessions_completed", sessionsCompleted); }, [sessionsCompleted]);
 
   const startQuickSession = (minutes, name) => {
     setSessionConfig({ minutes, name });
     setScreen("session");
   };
 
-  const finishSession = () => {
+  const finishSession = (minutes, moodLabel, moodEmoji) => {
     setSessionsCompleted((c) => c + 1);
+    if (moodLabel) logMood("after", moodLabel, moodEmoji);
     setScreen("stats");
   };
 
